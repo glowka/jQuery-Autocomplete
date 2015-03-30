@@ -313,20 +313,11 @@
             // If container is not positioned to body,
             // correct its position using offset parent offset
             if(containerParent !== document.body) {
-                var opacity = $container.css('opacity'),
-                    parentOffsetDiff;
-
-                    if (!that.visible){
-                        $container.css('opacity', 0).show();
-                    }
-
-                parentOffsetDiff = $container.offsetParent().offset();
-                styles.top -= parentOffsetDiff.top;
-                styles.left -= parentOffsetDiff.left;
-
-                if (!that.visible){
-                    $container.css('opacity', opacity).hide();
-                }
+                that.simulateShow(function(){
+                    var parentOffsetDiff = $container.offsetParent().offset();
+                    styles.top -= parentOffsetDiff.top;
+                    styles.left -= parentOffsetDiff.left;
+                })
             }
 
             // -2px to account for suggestions border.
@@ -490,18 +481,20 @@
                 }
             }
 
-            if (query.length < options.minChars) {
-                var showMoreCharsNotice = that.options.showMoreCharsNotice;
-                if(typeof that.options.showMoreCharsNotice === 'function')
-                    showMoreCharsNotice = that.options.showMoreCharsNotice(query);
-
-                if(showMoreCharsNotice)
-                    that.getMoreCharsNotice();
-                else
-                    that.hide();
-            } else {
+            if (query.length >= options.minChars)
                 that.getSuggestions(query);
-            }
+            else if(that.ifShowMoreChars(query))
+                that.moreCharsSuggestion();
+            else
+                that.hide();
+        },
+
+        ifShowMoreChars: function(query) {
+            var that = this,
+                showMoreCharsNotice = that.options.showMoreCharsNotice;
+            if(!query.length || query.length >= that.options.minChars)
+                return false;
+            return (typeof showMoreCharsNotice === 'function' ? showMoreCharsNotice(query) : showMoreCharsNotice);
         },
 
         findSuggestionIndex: function (query) {
@@ -618,27 +611,6 @@
             }
         },
 
-        getMoreCharsNotice: function() {
-            var that = this,
-                 container = $(that.suggestionsContainer),
-                 moreCharsContainer = $(that.moreCharsContainer),
-                 noSuggestionsContainer = $(that.noSuggestionsContainer);
-
-            this.adjustContainerWidth();
-
-            // Some explicit steps. Be careful here as it easy to get
-            // noSuggestionsContainer removed from DOM if not detached properly.
-            moreCharsContainer.detach();
-            noSuggestionsContainer.detach();
-            container.empty(); // clean suggestions if any
-            container.append(moreCharsContainer);
-
-            that.fixPosition();
-
-            container.show();
-            that.visible = true;
-        },
-
         isBadQuery: function (q) {
             if (!this.options.preventBadQueries){
                 return false;
@@ -654,6 +626,32 @@
             }
 
             return false;
+        },
+
+        show: function() {
+            var that = this,
+                container = $(that.suggestionsContainer);
+
+            that.visible = true;
+            container.show();
+        },
+
+        simulateShow: function(func) {
+            // use this function when you need container to have all properties set, just like it was open
+            var that = this,
+                container = $(that.suggestionsContainer),
+                opacity,
+                result;
+
+            if(that.visible)
+                return func();
+
+            opacity = container.css('opacity');
+            container.css('opacity', 0).show();
+            result = func();
+            container.css('opacity', opacity).hide();
+
+            return result;
         },
 
         hide: function () {
@@ -672,19 +670,17 @@
         },
 
         suggest: function () {
-            if (this.suggestions.length === 0) {
+            var that = this;
 
-                var showNoSuggestionNotice = this.options.showNoSuggestionNotice;
-                if(typeof this.options.showNoSuggestionNotice === 'function')
-                    showNoSuggestionNotice = this.options.showNoSuggestionNotice(this.suggestions);
+            if (that.suggestions.length)
+                that.someSuggestions();
+            else if(that.ifShowNoSuggestions())
+                that.noSuggestions();
+            else
+                that.hide();
+        },
 
-                if(showNoSuggestionNotice)
-                    this.noSuggestions();
-                else
-                    this.hide();
-                return;
-            }
-
+        someSuggestions: function() {
             var that = this,
                 options = that.options,
                 groupBy = options.groupBy,
@@ -728,26 +724,17 @@
                 html += '<div class="' + className + '" data-index="' + i + '">' + formatResult(suggestion, value) + '</div>';
             });
 
-            this.adjustContainerWidth();
-
-            // Detach noSuggestions not to have it removed when filling container with new suggestions
-            noSuggestionsContainer.detach();
-            moreCharsContainer.detach();
+            that.cleanContainerSafely();
+            that.adjustContainerWidth();
             container.html(html);
 
-            // If showNoSuggestionNotice is a function, call it to see
-            // if noSuggestionNotice should be added to theses suggestions
-            if(typeof this.options.showNoSuggestionNotice === 'function'
-                && this.options.showNoSuggestionNotice(that.suggestions)) {
+            // no suggestion notice can be displayed with suggestions too
+            if(that.ifShowNoSuggestions())
                 container.append(noSuggestionsContainer);
-            }
 
             if ($.isFunction(beforeRender)) {
                 beforeRender.call(that.element, container);
             }
-
-            that.fixPosition();
-            container.show();
 
             // Select first value by default:
             if (options.autoSelectFirst) {
@@ -756,29 +743,34 @@
                 container.children('.' + className).first().addClass(classSelected);
             }
 
-            that.visible = true;
             that.findBestHint();
+            that.fixPosition();
+            that.show();
         },
 
         noSuggestions: function() {
              var that = this,
                  container = $(that.suggestionsContainer),
-                 moreCharsContainer = $(that.moreCharsContainer),
                  noSuggestionsContainer = $(that.noSuggestionsContainer);
 
-            this.adjustContainerWidth();
-
-            // Some explicit steps. Be careful here as it easy to get
-            // noSuggestionsContainer removed from DOM if not detached properly.
-            noSuggestionsContainer.detach();
-            moreCharsContainer.detach();
-            container.empty(); // clean suggestions if any
-            container.append(noSuggestionsContainer);
+            that.cleanContainerSafely();
+            that.adjustContainerWidth();
+            container.html(noSuggestionsContainer);
 
             that.fixPosition();
+            that.show();
+        },
+        
+        ifShowNoSuggestions: function() {
+            var that = this,
+                showNoSuggestionNotice = this.options.showNoSuggestionNotice;
 
-            container.show();
-            that.visible = true;
+            // Notice is shown when:
+            //       setting is true and length==0
+            // or    length=* and setting is function and this function returned true
+            if(typeof showNoSuggestionNotice === 'function')
+                return showNoSuggestionNotice(that.suggestions);
+            return !that.suggestions.length && showNoSuggestionNotice;
         },
 
         adjustContainerWidth: function() {
@@ -796,6 +788,34 @@
                 container.width(width > 0 ? width : 300);
             }
         },
+        
+        moreCharsSuggestion: function() {
+            var that = this,
+                 container = $(that.suggestionsContainer),
+                 moreCharsContainer = $(that.moreCharsContainer),
+                 noSuggestionsContainer = $(that.noSuggestionsContainer);
+
+            that.adjustContainerWidth();
+            that.cleanContainerSafely();
+            container.html(moreCharsContainer);
+
+            that.fixPosition();
+            that.show();
+        },
+        
+        cleanContainerSafely: function() {
+            var that = this,
+                noSuggestionsContainer = $(that.noSuggestionsContainer),
+                moreCharsContainer = $(that.moreCharsContainer),
+                container = $(that.suggestionsContainer);
+
+            // Some explicit steps. Be careful here as it easy to get
+            // inner containers removed from DOM if not detached properly.
+            noSuggestionsContainer.detach();
+            moreCharsContainer.detach();
+            container.empty();
+        },
+
 
         findBestHint: function () {
             var that = this,
