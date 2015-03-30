@@ -47,6 +47,8 @@ The standard jquery.autocomplete.js file is around 2.7KB when minified via Closu
         * `dataType`: type of data returned from server. Either 'text' (default) or 'jsonp', which will cause the autocomplete to use jsonp. You may return a json object in your callback when using jsonp.
         * `showNoSuggestionNotice`: Default `false`. Boolean or `function (suggestions) {}`. When set `true` and no matching results, display a notification label. When function given, it is called on every suggestion display and if `true` returned, notification is displayed.
         * `noSuggestionNotice`: Default `No results`. Text or htmlString or Element or jQuery object for no matching results label.
+        * `showMoreCharsNotice`: Default `false`. Boolean or `function (query) {}`. When set `true` if query is shorter than 'minChars', 'moreCharsNotice' label is displayed. When function given, it is called when query is shorter than 'minChars' and  if `true` returned, notification is displayed.
+        * `moreCharsNotice`: Default `Keep writing...`. Text or htmlString or Element or jQuery object to show when given text is shorter than set 'minChars'.
         * `forceFixPosition`: Default: `false`. Suggestions are automatically positioned when their container is appended to body (look at `appendTo` option), in other cases suggestions are rendered but no positioning is applied.
            Set this option to force auto positioning in other cases.
         * `orientation`: Default `bottom`. Vertical orientation of the displayed suggestions, available values are `auto`, `top`, `bottom`.

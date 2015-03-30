@@ -90,6 +90,8 @@
                 },
                 showNoSuggestionNotice: false,
                 noSuggestionNotice: 'No results',
+                showMoreCharsNotice: false,
+                moreCharsNotice: 'Keep writing...',
                 orientation: 'bottom',
                 forceFixPosition: false
             };
@@ -108,6 +110,7 @@
         that.isLocal = false;
         that.suggestionsContainer = null;
         that.noSuggestionsContainer = null;
+        that.moreCharsContainer = null;
         that.options = $.extend({}, defaults, options);
         that.classes = {
             selected: 'autocomplete-selected',
@@ -148,6 +151,7 @@
                 selected = that.classes.selected,
                 options = that.options,
                 noSuggestionNotice = this.options.noSuggestionNotice,
+                moreCharsNotice = this.options.moreCharsNotice,
                 container;
 
             // Remove autocomplete attribute to prevent native suggestions:
@@ -166,6 +170,10 @@
             // html() deals with many types: htmlString or Element or Array or jQuery
             that.noSuggestionsContainer = $('<div class="autocomplete-no-suggestion"></div>')
                                           .html(noSuggestionNotice).get(0);
+
+            if(typeof moreCharsNotice !== 'string')
+                moreCharsNotice = $(moreCharsNotice).clone(true);
+            that.moreCharsContainer = $('<div class="autocomplete-more-chars"></div>').html(moreCharsNotice).get(0);
 
             that.suggestionsContainer = Autocomplete.utils.createNode(options.containerClass);
 
@@ -483,7 +491,14 @@
             }
 
             if (query.length < options.minChars) {
-                that.hide();
+                var showMoreCharsNotice = that.options.showMoreCharsNotice;
+                if(typeof that.options.showMoreCharsNotice === 'function')
+                    showMoreCharsNotice = that.options.showMoreCharsNotice(query);
+
+                if(showMoreCharsNotice)
+                    that.getMoreCharsNotice();
+                else
+                    that.hide();
             } else {
                 that.getSuggestions(query);
             }
@@ -603,6 +618,27 @@
             }
         },
 
+        getMoreCharsNotice: function() {
+            var that = this,
+                 container = $(that.suggestionsContainer),
+                 moreCharsContainer = $(that.moreCharsContainer),
+                 noSuggestionsContainer = $(that.noSuggestionsContainer);
+
+            this.adjustContainerWidth();
+
+            // Some explicit steps. Be careful here as it easy to get
+            // noSuggestionsContainer removed from DOM if not detached properly.
+            moreCharsContainer.detach();
+            noSuggestionsContainer.detach();
+            container.empty(); // clean suggestions if any
+            container.append(moreCharsContainer);
+
+            that.fixPosition();
+
+            container.show();
+            that.visible = true;
+        },
+
         isBadQuery: function (q) {
             if (!this.options.preventBadQueries){
                 return false;
@@ -658,6 +694,7 @@
                 classSelected = that.classes.selected,
                 container = $(that.suggestionsContainer),
                 noSuggestionsContainer = $(that.noSuggestionsContainer),
+                moreCharsContainer = $(that.moreCharsContainer),
                 beforeRender = options.beforeRender,
                 html = '',
                 category,
@@ -695,6 +732,7 @@
 
             // Detach noSuggestions not to have it removed when filling container with new suggestions
             noSuggestionsContainer.detach();
+            moreCharsContainer.detach();
             container.html(html);
 
             // If showNoSuggestionNotice is a function, call it to see
@@ -725,6 +763,7 @@
         noSuggestions: function() {
              var that = this,
                  container = $(that.suggestionsContainer),
+                 moreCharsContainer = $(that.moreCharsContainer),
                  noSuggestionsContainer = $(that.noSuggestionsContainer);
 
             this.adjustContainerWidth();
@@ -732,6 +771,7 @@
             // Some explicit steps. Be careful here as it easy to get
             // noSuggestionsContainer removed from DOM if not detached properly.
             noSuggestionsContainer.detach();
+            moreCharsContainer.detach();
             container.empty(); // clean suggestions if any
             container.append(noSuggestionsContainer);
 
